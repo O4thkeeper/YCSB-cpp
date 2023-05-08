@@ -41,6 +41,10 @@ class DB {
   ///
   virtual void Cleanup() { }
   ///
+  /// Print and reset the DB Statistics.
+  ///
+  virtual void Statistics() { }
+  ///
   /// Reads a record from the database.
   /// Field/value pairs from the result are stored in a vector.
   ///

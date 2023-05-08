@@ -28,6 +28,8 @@ class RocksdbDB : public DB {
 
   void Cleanup();
 
+  void Statistics() override;
+
   Status Read(const std::string &table, const std::string &key,
               const std::vector<std::string> *fields, std::vector<Field> &result) {
     return (this->*(method_read_))(table, key, fields, result);
@@ -91,6 +93,8 @@ class RocksdbDB : public DB {
   Status (RocksdbDB::*method_delete_)(const std::string &, const std::string &);
 
   int fieldcount_;
+  rocksdb::WriteOptions write_options_;
+  rocksdb::ReadOptions read_options_;
 
   static rocksdb::DB *db_;
   static int ref_cnt_;

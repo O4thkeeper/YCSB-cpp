@@ -30,6 +30,9 @@ class DBWrapper : public DB {
   void Cleanup() {
     db_->Cleanup();
   }
+  void Statistics() override {
+    db_->Statistics();
+  }
   Status Read(const std::string &table, const std::string &key,
               const std::vector<std::string> *fields, std::vector<Field> &result) {
     timer_.Start();
