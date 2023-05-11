@@ -7,7 +7,9 @@
 #include <rocksdb/utilities/options_util.h>
 #include <titan/statistics.h>
 
+#include <chrono>
 #include <cinttypes>
+#include <iomanip>
 #include <memory>
 
 #include "core/core_workload.h"
@@ -95,7 +97,7 @@ const std::string PROP_COMPRESSED_CACHE_SIZE = "titandb.compressed_cache_size";
 const std::string PROP_COMPRESSED_CACHE_SIZE_DEFAULT = "0";
 
 const std::string PROP_BLOOM_BITS = "titandb.bloom_bits";
-const std::string PROP_BLOOM_BITS_DEFAULT = "0";
+const std::string PROP_BLOOM_BITS_DEFAULT = "-1";
 
 const std::string PROP_INCREASE_PARALLELISM = "titandb.increase_parallelism";
 const std::string PROP_INCREASE_PARALLELISM_DEFAULT = "false";
@@ -128,6 +130,9 @@ const std::string PROP_BLOB_DB_FILE_SIZE_DEFAULT = "134217728";
 const std::string PROP_TITAN_MIN_BLOB_SIZE = "titandb.titan_min_blob_size";
 const std::string PROP_TITAN_MIN_BLOB_SIZE_DEFAULT = "4096";
 
+const std::string PROP_TITAN_GC_TIME_PATH = "titandb.titan_gc_time_path";
+const std::string PROP_TITAN_GC_TIME_PATH_DEFAULT = "";
+
 static class std::shared_ptr<rocksdb::Statistics> dbstats;
 
 static std::shared_ptr<rocksdb::Env> env_guard;
@@ -139,7 +144,7 @@ static std::shared_ptr<rocksdb::Cache> block_cache_compressed;
 
 namespace ycsbc {
 
-rocksdb::DB *TitandbDB::db_ = nullptr;
+rocksdb::titandb::TitanDB *TitandbDB::db_ = nullptr;
 int TitandbDB::ref_cnt_ = 0;
 std::mutex TitandbDB::mu_;
 
@@ -230,7 +235,7 @@ void TitandbDB::Init() {
   if (props.GetProperty(PROP_DESTROY, PROP_DESTROY_DEFAULT) == "true") {
     s = rocksdb::DestroyDB(db_path, opt);
     if (!s.ok()) {
-      throw utils::Exception(std::string("RocksDB DestroyDB: ") + s.ToString());
+      throw utils::Exception(std::string("Titan DestroyDB: ") + s.ToString());
     }
   }
 
@@ -255,7 +260,7 @@ void TitandbDB::Cleanup() {
 }
 
 void TitandbDB::Statistics() {
-  //  fprintf(stdout, "STATISTICS:\n%s\n", dbstats->ToString().c_str());
+  db_->WaitBackgroundJob();
   std::string res;
   res.reserve(20000);
   const int buffer_size = 200;
@@ -689,6 +694,32 @@ DB::Status TitandbDB::DeleteSingle(const std::string &table,
     throw utils::Exception(std::string("TitanDB Delete: ") + s.ToString());
   }
   return kOK;
+}
+
+void TitandbDB::GetGCTimeList(
+    std::vector<std::pair<uint64_t, uint64_t>> *result) {
+  db_->GetGCTimeList(result);
+}
+
+void TitandbDB::OnTransactionFinished() {
+  db_->WaitBackgroundJob();
+  std::vector<std::pair<uint64_t, uint64_t>> result;
+  GetGCTimeList(&result);
+  std::string path = props_->GetProperty(PROP_TITAN_GC_TIME_PATH,
+                                         PROP_TITAN_GC_TIME_PATH_DEFAULT);
+  if (!path.empty()) {
+    std::ofstream ofstream_gc_time(path, std::ios::app | std::ofstream::binary);
+    ofstream_gc_time << "start time,end time" << std::endl;
+    for (const auto &item : result) {
+      auto start_time = (std::time_t)(item.first / 1000000);
+      auto end_time = (std::time_t)(item.second / 1000000);
+      ofstream_gc_time << std::put_time(std::localtime(&start_time), "%F %T")
+                       << ",";
+      ofstream_gc_time << std::put_time(std::localtime(&end_time), "%F %T")
+                       << std::endl;
+    }
+    ofstream_gc_time.close();
+  }
 }
 
 DB *NewTitandbDB() { return new TitandbDB; }

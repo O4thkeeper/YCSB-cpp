@@ -127,7 +127,8 @@ int main(const int argc, const char *argv[]) {
     }
 
     std::cout << "Load runtime(sec): " << runtime << std::endl;
-    std::cout << "Load operations(ops): " << sum << std::endl;
+    std::cout << "Load operations success(ops): " << sum << std::endl;
+    std::cout << "Load operations fail(ops): " << total_ops - sum << std::endl;
     std::cout << "Load throughput(ops/sec): " << sum / runtime << std::endl;
 
     if (statistics) {
@@ -162,7 +163,7 @@ int main(const int argc, const char *argv[]) {
       }
       client_threads.emplace_back(
           std::async(std::launch::async, ycsbc::ClientThread, dbs[i], &wl,
-                     thread_ops, false, !do_load, true, &latch));
+                     thread_ops, false, !do_load, false, &latch));
     }
     assert((int)client_threads.size() == num_threads);
 
@@ -178,16 +179,20 @@ int main(const int argc, const char *argv[]) {
     }
 
     std::cout << "Run runtime(sec): " << runtime << std::endl;
-    std::cout << "Run operations(ops): " << sum << std::endl;
+    std::cout << "Run operations success(ops): " << sum << std::endl;
+    std::cout << "Run operations fail(ops): " << total_ops - sum << std::endl;
     std::cout << "Run throughput(ops/sec): " << sum / runtime << std::endl;
 
     if (statistics) {
       std::cout << std::endl;
       dbs[0]->Statistics();
     }
+
+    dbs[0]->OnTransactionFinished();
   }
 
   for (int i = 0; i < num_threads; i++) {
+    dbs[i]->Cleanup();
     delete dbs[i];
   }
 }

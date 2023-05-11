@@ -41,6 +41,10 @@ class DB {
   ///
   virtual void Cleanup() { }
   ///
+  /// Do something when finishing transaction.
+  ///
+  virtual void OnTransactionFinished() { }
+  ///
   /// Print and reset the DB Statistics.
   ///
   virtual void Statistics() { }

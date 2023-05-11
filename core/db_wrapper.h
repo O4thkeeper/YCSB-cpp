@@ -33,6 +33,9 @@ class DBWrapper : public DB {
   void Statistics() override {
     db_->Statistics();
   }
+  void OnTransactionFinished() override {
+    db_->OnTransactionFinished();
+  }
   Status Read(const std::string &table, const std::string &key,
               const std::vector<std::string> *fields, std::vector<Field> &result) {
     timer_.Start();

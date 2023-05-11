@@ -18,9 +18,7 @@ namespace utils {
 template <typename R, typename P = std::ratio<1>>
 class Timer {
  public:
-  void Start() {
-    time_ = Clock::now();
-  }
+  void Start() { time_ = Clock::now(); }
 
   R End() {
     Duration span;
@@ -36,9 +34,8 @@ class Timer {
   Clock::time_point time_;
 };
 
-} // utils
+}  // namespace utils
 
-} // ycsbc
+}  // namespace ycsbc
 
-#endif // YCSB_C_TIMER_H_
-
+#endif  // YCSB_C_TIMER_H_

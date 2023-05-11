@@ -1,14 +1,14 @@
 #ifndef YCSB_C_TITANDB_DB_H_
 #define YCSB_C_TITANDB_DB_H_
 
-#include <string>
+#include <titan/db.h>
+#include <titan/options.h>
+
 #include <mutex>
+#include <string>
 
 #include "core/db.h"
 #include "core/properties.h"
-
-#include <titan/db.h>
-#include <titan/options.h>
 
 namespace ycsbc {
 
@@ -17,27 +17,33 @@ class TitandbDB : public DB {
   TitandbDB() {}
   ~TitandbDB() {}
 
-  void Init();
+  void Init() override;
 
-  void Cleanup();
+  void Cleanup() override;
 
   void Statistics() override;
 
+  void OnTransactionFinished() override;
+
   Status Read(const std::string &table, const std::string &key,
-              const std::vector<std::string> *fields, std::vector<Field> &result) {
+              const std::vector<std::string> *fields,
+              std::vector<Field> &result) override {
     return (this->*(method_read_))(table, key, fields, result);
   }
 
   Status Scan(const std::string &table, const std::string &key, int len,
-              const std::vector<std::string> *fields, std::vector<std::vector<Field>> &result) {
+              const std::vector<std::string> *fields,
+              std::vector<std::vector<Field>> &result) {
     return (this->*(method_scan_))(table, key, len, fields, result);
   }
 
-  Status Update(const std::string &table, const std::string &key, std::vector<Field> &values) {
+  Status Update(const std::string &table, const std::string &key,
+                std::vector<Field> &values) {
     return (this->*(method_update_))(table, key, values);
   }
 
-  Status Insert(const std::string &table, const std::string &key, std::vector<Field> &values) {
+  Status Insert(const std::string &table, const std::string &key,
+                std::vector<Field> &values) {
     return (this->*(method_insert_))(table, key, values);
   }
 
@@ -51,17 +57,23 @@ class TitandbDB : public DB {
   };
   TitanFormat format_;
 
-  void GetOptions(const utils::Properties &props, rocksdb::titandb::TitanOptions *opt);
+  void GetOptions(const utils::Properties &props,
+                  rocksdb::titandb::TitanOptions *opt);
   static void SerializeRow(const std::vector<Field> &values, std::string &data);
-  static void DeserializeRowFilter(std::vector<Field> &values, const char *p, const char *lim,
+  static void DeserializeRowFilter(std::vector<Field> &values, const char *p,
+                                   const char *lim,
                                    const std::vector<std::string> &fields);
-  static void DeserializeRowFilter(std::vector<Field> &values, const std::string &data,
+  static void DeserializeRowFilter(std::vector<Field> &values,
+                                   const std::string &data,
                                    const std::vector<std::string> &fields);
-  static void DeserializeRow(std::vector<Field> &values, const char *p, const char *lim);
-  static void DeserializeRow(std::vector<Field> &values, const std::string &data);
+  static void DeserializeRow(std::vector<Field> &values, const char *p,
+                             const char *lim);
+  static void DeserializeRow(std::vector<Field> &values,
+                             const std::string &data);
 
   Status ReadSingle(const std::string &table, const std::string &key,
-                    const std::vector<std::string> *fields, std::vector<Field> &result);
+                    const std::vector<std::string> *fields,
+                    std::vector<Field> &result);
   Status ScanSingle(const std::string &table, const std::string &key, int len,
                     const std::vector<std::string> *fields,
                     std::vector<std::vector<Field>> &result);
@@ -73,8 +85,9 @@ class TitandbDB : public DB {
                       std::vector<Field> &values);
   Status DeleteSingle(const std::string &table, const std::string &key);
 
-  Status (TitandbDB::*method_read_)(const std::string &, const std:: string &,
-                                    const std::vector<std::string> *, std::vector<Field> &);
+  Status (TitandbDB::*method_read_)(const std::string &, const std::string &,
+                                    const std::vector<std::string> *,
+                                    std::vector<Field> &);
   Status (TitandbDB::*method_scan_)(const std::string &, const std::string &,
                                     int, const std::vector<std::string> *,
                                     std::vector<std::vector<Field>> &);
@@ -84,18 +97,19 @@ class TitandbDB : public DB {
                                       std::vector<Field> &);
   Status (TitandbDB::*method_delete_)(const std::string &, const std::string &);
 
+  void GetGCTimeList(std::vector<std::pair<uint64_t, uint64_t>> *result);
+
   int fieldcount_;
   rocksdb::WriteOptions write_options_;
   rocksdb::ReadOptions read_options_;
 
-  static rocksdb::DB *db_;
+  static rocksdb::titandb::TitanDB *db_;
   static int ref_cnt_;
   static std::mutex mu_;
 };
 
 DB *NewTitandbDB();
 
-} // ycsbc
+}  // namespace ycsbc
 
-#endif // YCSB_C_TITANDB_DB_H_
-
+#endif  // YCSB_C_TITANDB_DB_H_

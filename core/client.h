@@ -10,42 +10,47 @@
 #define YCSB_C_CLIENT_H_
 
 #include <string>
-#include "db.h"
+
 #include "core_workload.h"
-#include "utils.h"
 #include "countdown_latch.h"
+#include "db.h"
+#include "utils.h"
 
 namespace ycsbc {
 
-inline int ClientThread(ycsbc::DB *db, ycsbc::CoreWorkload *wl, const int num_ops, bool is_loading,
-                        bool init_db, bool cleanup_db, CountDownLatch *latch) {
-    try {
-        if (init_db) {
-            db->Init();
-        }
-
-        int ops = 0;
-        for (int i = 0; i < num_ops; ++i) {
-            if (is_loading) {
-                wl->DoInsert(*db);
-            } else {
-                wl->DoTransaction(*db);
-            }
-            ops++;
-        }
-
-        if (cleanup_db) {
-            db->Cleanup();
-        }
-
-        latch->CountDown();
-        return ops;
-    } catch(const utils::Exception& e) {
-        std::cerr<<"Caught exception: "<<e.what()<<std::endl;
-        exit(1);
+inline int ClientThread(ycsbc::DB *db, ycsbc::CoreWorkload *wl,
+                        const int num_ops, bool is_loading, bool init_db,
+                        bool cleanup_db, CountDownLatch *latch) {
+  try {
+    if (init_db) {
+      db->Init();
     }
+
+    int ops = 0;
+    bool op_OK;
+    for (int i = 0; i < num_ops; ++i) {
+      if (is_loading) {
+        op_OK = wl->DoInsert(*db);
+      } else {
+        op_OK = wl->DoTransaction(*db);
+      }
+      if (op_OK){
+        ops++;
+      }
+    }
+
+    if (cleanup_db) {
+      db->Cleanup();
+    }
+
+    latch->CountDown();
+    return ops;
+  } catch (const utils::Exception &e) {
+    std::cerr << "Caught exception: " << e.what() << std::endl;
+    exit(1);
+  }
 }
 
-} // ycsbc
+}  // namespace ycsbc
 
-#endif // YCSB_C_CLIENT_H_
+#endif  // YCSB_C_CLIENT_H_
