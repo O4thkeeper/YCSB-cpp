@@ -97,7 +97,7 @@ class TitandbDB : public DB {
                                       std::vector<Field> &);
   Status (TitandbDB::*method_delete_)(const std::string &, const std::string &);
 
-  void GetGCTimeList(std::vector<std::pair<uint64_t, uint64_t>> *result);
+  void GetGCTimeList(std::vector<std::vector<uint64_t>> *result);
 
   int fieldcount_;
   rocksdb::WriteOptions write_options_;

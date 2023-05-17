@@ -9,6 +9,7 @@
 
 #include <chrono>
 #include <cinttypes>
+#include <experimental/iterator>
 #include <iomanip>
 #include <memory>
 
@@ -129,6 +130,12 @@ const std::string PROP_BLOB_DB_FILE_SIZE_DEFAULT = "134217728";
 
 const std::string PROP_TITAN_MIN_BLOB_SIZE = "titandb.titan_min_blob_size";
 const std::string PROP_TITAN_MIN_BLOB_SIZE_DEFAULT = "4096";
+
+const std::string PROP_MAX_GC_BATCH_SIZE = "titandb.max_gc_batch_size";
+const std::string PROP_MAX_GC_BATCH_SIZE_DEFAULT = "1073741824";
+
+const std::string PROP_MIN_GC_BATCH_SIZE = "titandb.min_gc_batch_size";
+const std::string PROP_MIN_GC_BATCH_SIZE_DEFAULT = "134217728";
 
 const std::string PROP_TITAN_GC_TIME_PATH = "titandb.titan_gc_time_path";
 const std::string PROP_TITAN_GC_TIME_PATH_DEFAULT = "";
@@ -482,11 +489,19 @@ void TitandbDB::GetOptions(const utils::Properties &props,
 
     val = std::stoi(props.GetProperty(PROP_BLOB_DB_FILE_SIZE,
                                       PROP_BLOB_DB_FILE_SIZE_DEFAULT));
-    opt->blob_file_size = val;
+    opt->blob_file_target_size = val;
 
     val = std::stoi(props.GetProperty(PROP_TITAN_MIN_BLOB_SIZE,
                                       PROP_TITAN_MIN_BLOB_SIZE_DEFAULT));
     opt->min_blob_size = val;
+
+    val = std::stoi(props.GetProperty(PROP_MAX_GC_BATCH_SIZE,
+                                      PROP_MAX_GC_BATCH_SIZE_DEFAULT));
+    opt->max_gc_batch_size = val;
+
+    val = std::stoi(props.GetProperty(PROP_MIN_GC_BATCH_SIZE,
+                                      PROP_MIN_GC_BATCH_SIZE_DEFAULT));
+    opt->min_gc_batch_size = val;
 
     rocksdb::BlockBasedTableOptions table_options;
     size_t cache_size =
@@ -696,29 +711,30 @@ DB::Status TitandbDB::DeleteSingle(const std::string &table,
   return kOK;
 }
 
-void TitandbDB::GetGCTimeList(
-    std::vector<std::pair<uint64_t, uint64_t>> *result) {
-  db_->GetGCTimeList(result);
+void TitandbDB::GetGCTimeList(std::vector<std::vector<uint64_t>> *result) {
+  db_->GetGCTimeStats(result);
 }
 
 void TitandbDB::OnTransactionFinished() {
   db_->WaitBackgroundJob();
-  std::vector<std::pair<uint64_t, uint64_t>> result;
+  std::vector<std::vector<uint64_t>> result;
   GetGCTimeList(&result);
+
   std::string path = props_->GetProperty(PROP_TITAN_GC_TIME_PATH,
                                          PROP_TITAN_GC_TIME_PATH_DEFAULT);
   if (!path.empty()) {
-    std::ofstream ofstream_gc_time(path, std::ios::app | std::ofstream::binary);
-    ofstream_gc_time << "start time,end time" << std::endl;
+    std::ofstream ofstream_gc_split(path,
+                                    std::ios::app | std::ofstream::binary);
+    ofstream_gc_split << "start time,end time,read lsm micros,update lsm "
+                         "micros,read blob micros,write blob micros,read lsm "
+                         "num,read blob num,write back num"
+                      << std::endl;
     for (const auto &item : result) {
-      auto start_time = (std::time_t)(item.first / 1000000);
-      auto end_time = (std::time_t)(item.second / 1000000);
-      ofstream_gc_time << std::put_time(std::localtime(&start_time), "%F %T")
-                       << ",";
-      ofstream_gc_time << std::put_time(std::localtime(&end_time), "%F %T")
-                       << std::endl;
+      std::copy(item.begin(), item.end(),
+                std::experimental::make_ostream_joiner(ofstream_gc_split, ","));
+      ofstream_gc_split << std::endl;
     }
-    ofstream_gc_time.close();
+    ofstream_gc_split.close();
   }
 }
 
