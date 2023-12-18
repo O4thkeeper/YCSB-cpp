@@ -34,7 +34,7 @@ inline int ClientThread(ycsbc::DB *db, ycsbc::CoreWorkload *wl,
       } else {
         op_OK = wl->DoTransaction(*db);
       }
-      if (op_OK){
+      if (op_OK) {
         ops++;
       }
     }

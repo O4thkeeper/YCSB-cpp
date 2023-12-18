@@ -256,6 +256,19 @@ std::string CoreWorkload::NextFieldName() {
   return std::string(field_prefix_).append(std::to_string(field_chooser_->Next()));
 }
 
+void CoreWorkload::PrepareRandomInsert(int numops) {
+  for (int i = 0; i < numops; ++i) {
+    insert_key_sequence_->Next();
+  }
+}
+
+bool CoreWorkload::DoRandomInsert(DB &db) {
+  const std::string key = BuildKeyName(NextTransactionKeyNum());
+  std::vector<DB::Field> fields;
+  BuildValues(fields);
+  return db.Insert(table_name_, key, fields) == DB::kOK;
+}
+
 bool CoreWorkload::DoInsert(DB &db) {
   const std::string key = BuildKeyName(insert_key_sequence_->Next());
   std::vector<DB::Field> fields;

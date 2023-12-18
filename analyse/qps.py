@@ -3,7 +3,7 @@ import time
 
 import pandas
 
-from analyse.qps_cpu_painter import draw_qps_gc
+from analyse.qps_cpu_painter import draw_qps_gc, draw_throughput_time_gc
 
 
 # Return list of [time str, all qps, standalone operation qps ...]
@@ -64,14 +64,17 @@ def gc_count_at_time(gc_list, time_list):
 # input example:'2023-05-10 10:49:35'
 def phrase_time(time_str):
     # dt = datetime.strptime(time_str, '%Y-%m-%d %H:%M:%S')
-    time_array = time.strptime(time_str, '%Y-%m-%d %H:%M:%S')
-    timestamp = int(time.mktime(time_array))
-    return timestamp
+    if isinstance(time_str, str):
+        time_array = time.strptime(time_str, '%Y-%m-%d %H:%M:%S')
+        timestamp = int(time.mktime(time_array))
+        return timestamp
+    else:
+        return time_str//1000000
 
 
 def main():
-    qps_file = "/Users/fenghao/Desktop/ycsb_test/20M-80M-0.25-64-512MB-28G/UPDATE"
-    gc_file = "/Users/fenghao/Desktop/ycsb_test/20M-80M-0.25-64-512MB-28G/GC_TIME"
+    qps_file = "/Users/fenghao/Desktop/offload/overall/ycsb-titan-120G/UPDATE"
+    gc_file = "/Users/fenghao/Desktop/offload/overall/ycsb-titan-120G/GC_TIME"
 
     ops_res = get_ops(qps_file, ["READ", "UPDATE"])
     gc_time = get_gc(gc_file)
@@ -82,7 +85,8 @@ def main():
     for i in range(len(qps_res) - 1, 0, -1):
         qps_res[i] -= qps_res[i - 1]
     gc_res = gc_count_at_time(gc_time, [phrase_time(ops[0]) for ops in ops_res])
-    draw_qps_gc(x, qps_res, gc_res)
+    # draw_qps_gc(x, qps_res, gc_res)
+    draw_throughput_time_gc(x, qps_res, gc_res)
 
 
 if __name__ == '__main__':

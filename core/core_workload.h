@@ -174,6 +174,8 @@ class CoreWorkload {
   ///
   virtual void Init(const utils::Properties &p);
 
+  virtual void PrepareRandomInsert(int numops);
+  virtual bool DoRandomInsert(DB &db);
   virtual bool DoInsert(DB &db);
   virtual bool DoTransaction(DB &db);
 

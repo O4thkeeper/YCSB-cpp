@@ -1,36 +1,107 @@
+import time
+
+import numpy as np
 import pandas
-
-from analyse.qps_cpu_painter import draw_cpu_gc
-from analyse.qps import phrase_time, get_gc, gc_count_at_time
+from matplotlib import pyplot as plt
 
 
-def get_cpu_usage(path):
-    cpu_usage_data = pandas.read_csv(path)
-
+def get_cpu_usage(cpu_files, gc_files):
     result = []
-    for index, row in cpu_usage_data.iterrows():
-        timestamp = phrase_time(row['time'])
-        cpu_usage = row['cpu%']
-        result.append((timestamp, cpu_usage))
+    for cpu_file, gc_file in zip(cpu_files, gc_files):
+        gc_time_data = pandas.read_csv(gc_file)
+        gc_times = []
+        max_time = 0
+        for index, row in gc_time_data.iterrows():
+            start_time = phrase_time(row['start time'])
+            end_time = phrase_time(row['end time'])
+            if end_time > max_time:
+                max_time = end_time
+            gc_times.append((start_time, end_time))
+        min_time = gc_times[0][0]
+
+        cpu_usage_data = pandas.read_csv(cpu_file)
+        cpu_util = 0
+        time_point = 0
+        for index, row in cpu_usage_data.iterrows():
+            timestamp = phrase_time(row['time'])
+            cur_time_point = 0
+            if min_time <= timestamp <= max_time:
+                for gc_time in gc_times:
+                    if gc_time[0] <= timestamp <= gc_time[1]:
+                        cur_time_point += 1
+                if cur_time_point >= 0:
+                    # cpu_util += (row['cpu%']) / (cur_time_point + 1.35)
+                    thread = row['thread']
+                    if thread == 0:
+                        thread += 3
+                    cpu_util += (row['cpu%']) / thread
+                    time_point += 1
+
+        result.append(cpu_util / time_point)
 
     return result
 
 
+def phrase_time(time_str):
+    # dt = datetime.strptime(time_str, '%Y-%m-%d %H:%M:%S')
+    if isinstance(time_str, str):
+        time_array = time.strptime(time_str, '%Y-%m-%d %H:%M:%S')
+        timestamp = int(time.mktime(time_array))
+        return timestamp
+    else:
+        return time_str // 1000000
+
+
 def main():
-    cpu_file = "/Users/fenghao/Desktop/ycsb_test/20M-80M-0.25-64-512MB-28G/CPU_UPDATE"
-    gc_file = "/Users/fenghao/Desktop/ycsb_test/20M-80M-0.25-64-512MB-28G/GC_TIME"
+    params = ["0.6", "0.5", "0.4", "0.3"]
+    paths = ["/Users/fenghao/Desktop/ASPLOS2024 GCoffloading/motivation_test/ssd_ycsb/大数据量/" + param + "-200M/" for
+             param in params]
+    # paths = ["/Users/fenghao/Desktop/offload/overall/titan-uniform/"]
 
-    cpu_usage = get_cpu_usage(cpu_file)
+    cpu_files = [path + "CPU" for path in paths]
+    gc_files = [path + "GC_TIME" for path in paths]
 
-    x0 = cpu_usage[0][0]
-    x = [cu[0] - x0 for cu in cpu_usage]
+    io_list = [(87, 24), (119, 45), (145, 70), (191, 113)]
+    colors = [(144 / 255, 201 / 255, 231 / 255), (219 / 255, 49 / 255, 36 / 255), (252 / 255, 140 / 255, 90 / 255)]
+    output_list = [io[1] for io in io_list]
+    input_list = [io[0] for io in io_list]
 
-    cpu_res = [cu[1] for cu in cpu_usage]
+    # cpu_usage = get_cpu_usage(cpu_files, gc_files)
+    # print(cpu_usage)
+    cpu_usage = [i / 2.3 for i in [221, 203, 195, 182]]
 
-    gc_time = get_gc(gc_file)
-    gc_res = gc_count_at_time(gc_time, [cu[0] for cu in cpu_usage])
+    plt.rcParams['font.sans-serif'] = ['Times New Roman']
+    plt.rcParams['axes.unicode_minus'] = False
+    fig = plt.figure(figsize=(4, 3))
+    ax = fig.subplots()
 
-    draw_cpu_gc(x, cpu_res, gc_res)
+    x_data = ['60', '50', '40', '30']
+    x = np.arange(len(x_data))
+    width = 0.30
+    bottom = input_list
+
+    ax.bar(x - width / 2, cpu_usage, width, label="CPU Usage", color=colors[0])
+    ax.set_ylabel("Normalized Utilization (%)", fontsize=12)
+    ax.set_ylim(ymin=50, ymax=100)
+    ax.set_xlabel("Garbage Ratio (%)", fontsize=12)
+
+    ax2 = ax.twinx()
+    ax2.bar(x + width / 2, input_list, width, label="Read", color=colors[1])
+    ax2.bar(x + width / 2, output_list, width, bottom=bottom, label='Write', color=colors[2])
+    ax2.set_ylabel("Data Size (GB)", fontsize=12, rotation=-90, labelpad=13)
+    ax2.set_ylim(ymin=0, ymax=350)
+
+    lines, labels = ax.get_legend_handles_labels()
+    lines2, labels2 = ax2.get_legend_handles_labels()
+    ax2.legend(lines + lines2, labels + labels2, markerscale=7, ncol=3,
+               bbox_to_anchor=(1.15, 1.2), loc=0, frameon=False, fontsize=11)
+
+    ax.set_xticks(x)
+    ax.set_xticklabels(x_data)
+
+    plt.tight_layout()
+    # plt.show()
+    plt.savefig('/Users/fenghao/Desktop/motivation-throughput.jpg', dpi=500)
 
 
 if __name__ == '__main__':

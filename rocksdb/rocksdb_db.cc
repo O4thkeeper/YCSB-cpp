@@ -61,6 +61,10 @@ const std::string PROP_MAX_BYTES_FOR_LEVEL_BASE =
     "rocksdb.max_bytes_for_level_base";
 const std::string PROP_MAX_BYTES_FOR_LEVEL_BASE_DEFAULT = "0";
 
+const std::string PROP_MAX_BYTES_FOR_LEVEL_MULTIPLIER =
+    "rocksdb.max_bytes_for_level_multiplier";
+const std::string PROP_MAX_BYTES_FOR_LEVEL_MULTIPLIER_DEFAULT = "10";
+
 const std::string PROP_WRITE_BUFFER_SIZE = "rocksdb.write_buffer_size";
 const std::string PROP_WRITE_BUFFER_SIZE_DEFAULT = "0";
 
@@ -360,6 +364,11 @@ void RocksdbDB::GetOptions(
                                       PROP_MAX_BYTES_FOR_LEVEL_BASE_DEFAULT));
     if (val != 0) {
       opt->max_bytes_for_level_base = val;
+    }
+    val = std::stoi(props.GetProperty(PROP_MAX_BYTES_FOR_LEVEL_MULTIPLIER,
+                                      PROP_MAX_BYTES_FOR_LEVEL_MULTIPLIER_DEFAULT));
+    if (val != 0) {
+      opt->max_bytes_for_level_multiplier = val;
     }
     val = std::stoi(props.GetProperty(PROP_WRITE_BUFFER_SIZE,
                                       PROP_WRITE_BUFFER_SIZE_DEFAULT));

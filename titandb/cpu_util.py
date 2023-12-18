@@ -1,3 +1,4 @@
+import os
 import sys
 import time
 import psutil
@@ -15,21 +16,23 @@ def main():
 
     interval = 1
     with open("CPU", "a+") as f:
-        f.write("time,cpu%,mem%\n")  # titles
+        f.write("time,cpu%,thread,mem\n")  # titles
         while True:
             lines = []
             for _ in range(30):
-                line = get_usage_line(p)
+                line = get_usage_line(p, pid)
                 lines.append(line)
                 time.sleep(interval)
             f.write(''.join(lines))
 
 
-def get_usage_line(p):
+def get_usage_line(p, pid):
     current_time = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(time.time()))
     cpu_percent = p.cpu_percent()
+    thread_num = len(os.popen('ps -Tl -p %s | grep R' % pid).read().split('\n')) - 2
     mem_percent = p.memory_info().rss
-    line = current_time + ',' + str(cpu_percent) + ',' + str(mem_percent) + "\n"
+
+    line = current_time + ',' + str(cpu_percent) + ',' + str(thread_num) + ',' + str(mem_percent) + "\n"
     return line
 
 
