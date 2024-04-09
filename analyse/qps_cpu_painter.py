@@ -15,6 +15,15 @@ def qps_draw(ax, x_data, y_data):
     # ax.set_ylim([0, 10000])
 
 
+def qps_draw_line(ax, x_list, y_data_list,label_list):
+    for x_data, y_data,label in zip(x_list, y_data_list,label_list):
+        ax.plot(x_data, y_data,label=label)
+    ax.set_xlabel("Elapsed Seconds", fontsize=12)
+    ax.set_ylabel("Throughput (ops/sec)", fontsize=12)
+    ax.tick_params("y", color="b")
+    # ax.set_ylim([0, 10000])
+
+
 def cpu_draw(ax, x_data, y_data):
     ax.scatter(x_data, y_data, c="b", s=1, label="CPU Usage")
     ax.set_xlabel("Elapsed Seconds", fontsize=12)
@@ -45,6 +54,18 @@ def draw_qps_gc(x, qps_res, gc_res):
     plt.tight_layout()
     plt.show()
     # plt.savefig('/Users/fenghao/Desktop/qps.jpg', dpi=500)
+
+
+def draw_qps_list(x_list, qps_res_list,label_list):
+    init_plt_env()
+    fig = plt.figure(figsize=(8, 4))
+    ax = fig.subplots()
+    qps_draw_line(ax, x_list, qps_res_list,label_list)
+
+    ax.legend()
+    plt.tight_layout()
+    # plt.show()
+    plt.savefig('/Users/fenghao/Desktop/qps.jpg', dpi=500)
 
 
 def draw_throughput_time_gc(x, qps_res, gc_res):

@@ -28,11 +28,15 @@ inline int ClientThread(ycsbc::DB *db, ycsbc::CoreWorkload *wl,
 
     int ops = 0;
     bool op_OK;
+    //    if (!is_loading) {
+    //      wl->PrepareRandomInsert(num_ops);
+    //    }
     for (int i = 0; i < num_ops; ++i) {
       if (is_loading) {
         op_OK = wl->DoInsert(*db);
       } else {
         op_OK = wl->DoTransaction(*db);
+        //        op_OK = wl->DoRandomInsert(*db);
       }
       if (op_OK) {
         ops++;

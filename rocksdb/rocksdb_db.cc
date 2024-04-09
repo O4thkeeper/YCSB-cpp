@@ -581,7 +581,7 @@ DB::Status RocksdbDB::ReadSingle(const std::string &table,
     DeserializeRowFilter(result, data, *fields);
   } else {
     DeserializeRow(result, data);
-    assert(result.size() == static_cast<size_t>(fieldcount_));
+//    assert(result.size() == static_cast<size_t>(fieldcount_));
   }
   return kOK;
 }
@@ -600,7 +600,7 @@ DB::Status RocksdbDB::ScanSingle(const std::string &table,
       DeserializeRowFilter(values, data, *fields);
     } else {
       DeserializeRow(values, data);
-      assert(values.size() == static_cast<size_t>(fieldcount_));
+//      assert(values.size() == static_cast<size_t>(fieldcount_));
     }
     db_iter->Next();
   }

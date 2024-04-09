@@ -7,36 +7,38 @@
 //  Modifications Copyright 2023 Chengye YU <yuchengye2013 AT outlook.com>.
 //
 
-#include "utils.h"
-#include "uniform_generator.h"
-#include "zipfian_generator.h"
-#include "scrambled_zipfian_generator.h"
-#include "skewed_latest_generator.h"
-#include "const_generator.h"
 #include "core_workload.h"
-#include "random_byte_generator.h"
 
 #include <algorithm>
+#include <iostream>
 #include <random>
+#include <sstream>
 #include <string>
 
-using ycsbc::CoreWorkload;
+#include "const_generator.h"
+#include "random_byte_generator.h"
+#include "scrambled_zipfian_generator.h"
+#include "skewed_latest_generator.h"
+#include "uniform_generator.h"
+#include "utils.h"
+#include "zipfian_generator.h"
+
 using std::string;
+using ycsbc::CoreWorkload;
 
 const char *ycsbc::kOperationString[ycsbc::MAXOPTYPE] = {
-  "INSERT",
-  "READ",
-  "UPDATE",
-  "SCAN",
-  "READMODIFYWRITE",
-  "DELETE",
-  "INSERT-FAILED",
-  "READ-FAILED",
-  "UPDATE-FAILED",
-  "SCAN-FAILED",
-  "READMODIFYWRITE-FAILED",
-  "DELETE-FAILED"
-};
+    "INSERT",
+    "READ",
+    "UPDATE",
+    "SCAN",
+    "READMODIFYWRITE",
+    "DELETE",
+    "INSERT-FAILED",
+    "READ-FAILED",
+    "UPDATE-FAILED",
+    "SCAN-FAILED",
+    "READMODIFYWRITE-FAILED",
+    "DELETE-FAILED"};
 
 const string CoreWorkload::TABLENAME_PROPERTY = "table";
 const string CoreWorkload::TABLENAME_DEFAULT = "usertable";
@@ -44,11 +46,15 @@ const string CoreWorkload::TABLENAME_DEFAULT = "usertable";
 const string CoreWorkload::FIELD_COUNT_PROPERTY = "fieldcount";
 const string CoreWorkload::FIELD_COUNT_DEFAULT = "10";
 
-const string CoreWorkload::FIELD_LENGTH_DISTRIBUTION_PROPERTY = "field_len_dist";
+const string CoreWorkload::FIELD_LENGTH_DISTRIBUTION_PROPERTY =
+    "field_len_dist";
 const string CoreWorkload::FIELD_LENGTH_DISTRIBUTION_DEFAULT = "constant";
 
 const string CoreWorkload::FIELD_LENGTH_PROPERTY = "fieldlength";
 const string CoreWorkload::FIELD_LENGTH_DEFAULT = "100";
+
+const string CoreWorkload::FIELD_LENGTH_MIN_PROPERTY = "minfieldlength";
+const string CoreWorkload::FIELD_LENGTH_MIN_DEFAULT = "1";
 
 const string CoreWorkload::READ_ALL_FIELDS_PROPERTY = "readallfields";
 const string CoreWorkload::READ_ALL_FIELDS_DEFAULT = "true";
@@ -68,10 +74,24 @@ const string CoreWorkload::INSERT_PROPORTION_DEFAULT = "0.0";
 const string CoreWorkload::SCAN_PROPORTION_PROPERTY = "scanproportion";
 const string CoreWorkload::SCAN_PROPORTION_DEFAULT = "0.0";
 
-const string CoreWorkload::READMODIFYWRITE_PROPORTION_PROPERTY = "readmodifywriteproportion";
+const string CoreWorkload::READMODIFYWRITE_PROPORTION_PROPERTY =
+    "readmodifywriteproportion";
 const string CoreWorkload::READMODIFYWRITE_PROPORTION_DEFAULT = "0.0";
 
-const string CoreWorkload::REQUEST_DISTRIBUTION_PROPERTY = "requestdistribution";
+const string CoreWorkload::FROM_FILE_PROPORTION_PROPERTY = "fromfileproportion";
+const string CoreWorkload::FROM_FILE_PROPORTION_DEFAULT = "0.0";
+
+const string CoreWorkload::INPUT_FILE_PROPERTY = "filepath";
+const string CoreWorkload::INPUT_FILE_DEFAULT = "";
+
+const string CoreWorkload::FILE_TYPE_PROPERTY = "filetype";
+const string CoreWorkload::FILE_TYPE_DEFAULT = "";
+
+const string CoreWorkload::INIT_FILE_PROPERTY = "initfilepath";
+const string CoreWorkload::INIT_FILE_DEFAULT = "";
+
+const string CoreWorkload::REQUEST_DISTRIBUTION_PROPERTY =
+    "requestdistribution";
 const string CoreWorkload::REQUEST_DISTRIBUTION_DEFAULT = "uniform";
 
 const string CoreWorkload::ZERO_PADDING_PROPERTY = "zeropadding";
@@ -83,7 +103,8 @@ const string CoreWorkload::MIN_SCAN_LENGTH_DEFAULT = "1";
 const string CoreWorkload::MAX_SCAN_LENGTH_PROPERTY = "maxscanlength";
 const string CoreWorkload::MAX_SCAN_LENGTH_DEFAULT = "1000";
 
-const string CoreWorkload::SCAN_LENGTH_DISTRIBUTION_PROPERTY = "scanlengthdistribution";
+const string CoreWorkload::SCAN_LENGTH_DISTRIBUTION_PROPERTY =
+    "scanlengthdistribution";
 const string CoreWorkload::SCAN_LENGTH_DISTRIBUTION_DEFAULT = "uniform";
 
 const string CoreWorkload::INSERT_ORDER_PROPERTY = "insertorder";
@@ -103,45 +124,52 @@ const std::string CoreWorkload::ZIPFIAN_CONST_PROPERTY = "zipfian_const";
 namespace ycsbc {
 
 void CoreWorkload::Init(const utils::Properties &p) {
-  table_name_ = p.GetProperty(TABLENAME_PROPERTY,TABLENAME_DEFAULT);
+  table_name_ = p.GetProperty(TABLENAME_PROPERTY, TABLENAME_DEFAULT);
 
-  field_count_ = std::stoi(p.GetProperty(FIELD_COUNT_PROPERTY, FIELD_COUNT_DEFAULT));
+  field_count_ =
+      std::stoi(p.GetProperty(FIELD_COUNT_PROPERTY, FIELD_COUNT_DEFAULT));
   field_prefix_ = p.GetProperty(FIELD_NAME_PREFIX, FIELD_NAME_PREFIX_DEFAULT);
   field_len_generator_ = GetFieldLenGenerator(p);
 
-  double read_proportion = std::stod(p.GetProperty(READ_PROPORTION_PROPERTY,
-                                                   READ_PROPORTION_DEFAULT));
-  double update_proportion = std::stod(p.GetProperty(UPDATE_PROPORTION_PROPERTY,
-                                                     UPDATE_PROPORTION_DEFAULT));
-  double insert_proportion = std::stod(p.GetProperty(INSERT_PROPORTION_PROPERTY,
-                                                     INSERT_PROPORTION_DEFAULT));
-  double scan_proportion = std::stod(p.GetProperty(SCAN_PROPORTION_PROPERTY,
-                                                   SCAN_PROPORTION_DEFAULT));
+  double read_proportion = std::stod(
+      p.GetProperty(READ_PROPORTION_PROPERTY, READ_PROPORTION_DEFAULT));
+  double update_proportion = std::stod(
+      p.GetProperty(UPDATE_PROPORTION_PROPERTY, UPDATE_PROPORTION_DEFAULT));
+  double insert_proportion = std::stod(
+      p.GetProperty(INSERT_PROPORTION_PROPERTY, INSERT_PROPORTION_DEFAULT));
+  double scan_proportion = std::stod(
+      p.GetProperty(SCAN_PROPORTION_PROPERTY, SCAN_PROPORTION_DEFAULT));
   double readmodifywrite_proportion = std::stod(p.GetProperty(
       READMODIFYWRITE_PROPORTION_PROPERTY, READMODIFYWRITE_PROPORTION_DEFAULT));
+  double from_file_proportion = std::stod(p.GetProperty(
+      FROM_FILE_PROPORTION_PROPERTY, FROM_FILE_PROPORTION_DEFAULT));
 
   record_count_ = std::stoi(p.GetProperty(RECORD_COUNT_PROPERTY));
   std::string request_dist = p.GetProperty(REQUEST_DISTRIBUTION_PROPERTY,
                                            REQUEST_DISTRIBUTION_DEFAULT);
-  int min_scan_len = std::stoi(p.GetProperty(MIN_SCAN_LENGTH_PROPERTY, MIN_SCAN_LENGTH_DEFAULT));
-  int max_scan_len = std::stoi(p.GetProperty(MAX_SCAN_LENGTH_PROPERTY, MAX_SCAN_LENGTH_DEFAULT));
+  int min_scan_len = std::stoi(
+      p.GetProperty(MIN_SCAN_LENGTH_PROPERTY, MIN_SCAN_LENGTH_DEFAULT));
+  int max_scan_len = std::stoi(
+      p.GetProperty(MAX_SCAN_LENGTH_PROPERTY, MAX_SCAN_LENGTH_DEFAULT));
   std::string scan_len_dist = p.GetProperty(SCAN_LENGTH_DISTRIBUTION_PROPERTY,
                                             SCAN_LENGTH_DISTRIBUTION_DEFAULT);
-  int insert_start = std::stoi(p.GetProperty(INSERT_START_PROPERTY, INSERT_START_DEFAULT));
+  int insert_start =
+      std::stoi(p.GetProperty(INSERT_START_PROPERTY, INSERT_START_DEFAULT));
 
-  zero_padding_ = std::stoi(p.GetProperty(ZERO_PADDING_PROPERTY, ZERO_PADDING_DEFAULT));
+  zero_padding_ =
+      std::stoi(p.GetProperty(ZERO_PADDING_PROPERTY, ZERO_PADDING_DEFAULT));
 
-  read_all_fields_ = utils::StrToBool(p.GetProperty(READ_ALL_FIELDS_PROPERTY,
-                                                    READ_ALL_FIELDS_DEFAULT));
-  write_all_fields_ = utils::StrToBool(p.GetProperty(WRITE_ALL_FIELDS_PROPERTY,
-                                                     WRITE_ALL_FIELDS_DEFAULT));
+  read_all_fields_ = utils::StrToBool(
+      p.GetProperty(READ_ALL_FIELDS_PROPERTY, READ_ALL_FIELDS_DEFAULT));
+  write_all_fields_ = utils::StrToBool(
+      p.GetProperty(WRITE_ALL_FIELDS_PROPERTY, WRITE_ALL_FIELDS_DEFAULT));
+  file_type_ = p.GetProperty(FILE_TYPE_PROPERTY, FILE_TYPE_DEFAULT);
 
   if (p.GetProperty(INSERT_ORDER_PROPERTY, INSERT_ORDER_DEFAULT) == "hashed") {
     ordered_inserts_ = false;
   } else {
     ordered_inserts_ = true;
   }
-
 
   if (read_proportion > 0) {
     op_chooser_.AddValue(READ, read_proportion);
@@ -158,9 +186,89 @@ void CoreWorkload::Init(const utils::Properties &p) {
   if (readmodifywrite_proportion > 0) {
     op_chooser_.AddValue(READMODIFYWRITE, readmodifywrite_proportion);
   }
+  if (from_file_proportion > 0) {
+    op_chooser_.AddValue(FROM_FILE, from_file_proportion);
+
+    if (file_type_ == "cluster") {
+      std::string path = p.GetProperty(INIT_FILE_PROPERTY, INIT_FILE_DEFAULT);
+      if (path!=INIT_FILE_DEFAULT){
+        std::ifstream ifs_file_kvs(path, std::ifstream::in);
+        std::string s;
+        for (int record = 0; record < record_count_; ++record) {
+          getline(ifs_file_kvs, s);
+          init_keys.push_back(s);
+        }
+        ifs_file_kvs.close();
+      }
+    }
+
+    if (file_type_ == "cluster") {
+      std::string path = p.GetProperty(INPUT_FILE_PROPERTY, INPUT_FILE_DEFAULT);
+      std::ifstream ifs_file_kvs(path, std::ifstream::in);
+      std::string s;
+      int op_count = std::stoi(p.GetProperty(OPERATION_COUNT_PROPERTY));
+      for (int record = 0; record < op_count; ++record) {
+        getline(ifs_file_kvs, s);
+        std::istringstream iss(s);
+        for (int i = 0; i < 7; ++i) {
+          std::string token;
+          getline(iss, token, ',');
+          if (i == 1) {
+            file_keys.push_back(token);
+          } else if (i == 3) {
+            file_value_sizes.push_back(std::stoi(token));
+          } else if (i == 5) {
+            if (token == "get") {
+              file_operation_types.push_back(READ);
+            } else if (token == "add" || token == "set") {
+              file_operation_types.push_back(INSERT);
+            } else if (token == "scan") {
+              file_operation_types.push_back(SCAN);
+            } else {
+              file_operation_types.push_back(-1);
+            }
+          }
+        }
+      }
+      ifs_file_kvs.close();
+    } else if (file_type_ == "meta") {
+      std::string path = p.GetProperty(INPUT_FILE_PROPERTY, INPUT_FILE_DEFAULT);
+      std::ifstream ifs_file_kvs(path, std::ifstream::in);
+      std::string s;
+      int op_count = std::stoi(p.GetProperty(OPERATION_COUNT_PROPERTY));
+      for (int record = 0; record < op_count; ++record) {
+        getline(ifs_file_kvs, s);
+        std::istringstream iss(s);
+        for (int i = 0; i < 3; ++i) {
+          std::string token;
+          getline(iss, token, ',');
+          if (i == 0) {
+            trans_key_hash.push_back(std::stoi(token));
+          } else if (i == 2) {
+            file_value_sizes.push_back(std::stoi(token));
+          } else if (i == 1) {
+            int type = std::stoi(token);
+            if (type == 0) {
+              file_operation_types.push_back(READ);
+            } else if (type == 1) {
+              file_operation_types.push_back(INSERT);
+            } else if (type == 2) {
+              file_operation_types.push_back(SCAN);
+            } else {
+              file_operation_types.push_back(-1);
+            }
+          }
+        }
+      }
+      ifs_file_kvs.close();
+    } else {
+      throw utils::Exception("workload not support");
+    }
+  }
 
   insert_key_sequence_ = new CounterGenerator(insert_start);
-  transaction_insert_key_sequence_ = new AcknowledgedCounterGenerator(record_count_);
+  transaction_insert_key_sequence_ =
+      new AcknowledgedCounterGenerator(record_count_);
 
   if (request_dist == "uniform") {
     key_chooser_ = new UniformGenerator(0, record_count_ - 1);
@@ -172,10 +280,11 @@ void CoreWorkload::Init(const utils::Properties &p) {
     // If the generator picks a key that is not inserted yet, we just ignore it
     // and pick another key.
     int op_count = std::stoi(p.GetProperty(OPERATION_COUNT_PROPERTY));
-    int new_keys = (int)(op_count * insert_proportion * 2); // a fudge factor
+    int new_keys = (int)(op_count * insert_proportion * 2);  // a fudge factor
     if (p.ContainsKey(ZIPFIAN_CONST_PROPERTY)) {
       double zipfian_const = std::stod(p.GetProperty(ZIPFIAN_CONST_PROPERTY));
-      key_chooser_ = new ScrambledZipfianGenerator(0, record_count_ + new_keys - 1, zipfian_const);
+      key_chooser_ = new ScrambledZipfianGenerator(
+          0, record_count_ + new_keys - 1, zipfian_const);
     } else {
       key_chooser_ = new ScrambledZipfianGenerator(record_count_ + new_keys);
     }
@@ -192,7 +301,8 @@ void CoreWorkload::Init(const utils::Properties &p) {
   } else if (scan_len_dist == "zipfian") {
     scan_len_chooser_ = new ZipfianGenerator(min_scan_len, max_scan_len);
   } else {
-    throw utils::Exception("Distribution not allowed for scan length: " + scan_len_dist);
+    throw utils::Exception("Distribution not allowed for scan length: " +
+                           scan_len_dist);
   }
 }
 
@@ -200,15 +310,19 @@ ycsbc::Generator<uint64_t> *CoreWorkload::GetFieldLenGenerator(
     const utils::Properties &p) {
   string field_len_dist = p.GetProperty(FIELD_LENGTH_DISTRIBUTION_PROPERTY,
                                         FIELD_LENGTH_DISTRIBUTION_DEFAULT);
-  int field_len = std::stoi(p.GetProperty(FIELD_LENGTH_PROPERTY, FIELD_LENGTH_DEFAULT));
-  if(field_len_dist == "constant") {
+  int field_len =
+      std::stoi(p.GetProperty(FIELD_LENGTH_PROPERTY, FIELD_LENGTH_DEFAULT));
+  int field_min_len = std::stoi(
+      p.GetProperty(FIELD_LENGTH_MIN_PROPERTY, FIELD_LENGTH_MIN_DEFAULT));
+  if (field_len_dist == "constant") {
     return new ConstGenerator(field_len);
-  } else if(field_len_dist == "uniform") {
-    return new UniformGenerator(1, field_len);
-  } else if(field_len_dist == "zipfian") {
-    return new ZipfianGenerator(1, field_len);
+  } else if (field_len_dist == "uniform") {
+    return new UniformGenerator(field_min_len, field_len);
+  } else if (field_len_dist == "zipfian") {
+    return new ZipfianGenerator(field_min_len, field_len);
   } else {
-    throw utils::Exception("Unknown field length distribution: " + field_len_dist);
+    throw utils::Exception("Unknown field length distribution: " +
+                           field_len_dist);
   }
 }
 
@@ -230,8 +344,20 @@ void CoreWorkload::BuildValues(std::vector<ycsbc::DB::Field> &values) {
     uint64_t len = field_len_generator_->Next();
     field.value.reserve(len);
     RandomByteGenerator byte_generator;
-    std::generate_n(std::back_inserter(field.value), len, [&]() { return byte_generator.Next(); } );
+    std::generate_n(std::back_inserter(field.value), len,
+                    [&]() { return byte_generator.Next(); });
   }
+}
+
+void CoreWorkload::BuildValues(std::vector<ycsbc::DB::Field> &values,
+                               int field_len) {
+  values.push_back(DB::Field());
+  ycsbc::DB::Field &field = values.back();
+  field.name.append(field_prefix_).append(std::to_string(0));
+  field.value.reserve(field_len);
+  RandomByteGenerator byte_generator;
+  std::generate_n(std::back_inserter(field.value), field_len,
+                  [&]() { return byte_generator.Next(); });
 }
 
 void CoreWorkload::BuildSingleValue(std::vector<ycsbc::DB::Field> &values) {
@@ -241,7 +367,8 @@ void CoreWorkload::BuildSingleValue(std::vector<ycsbc::DB::Field> &values) {
   uint64_t len = field_len_generator_->Next();
   field.value.reserve(len);
   RandomByteGenerator byte_generator;
-  std::generate_n(std::back_inserter(field.value), len, [&]() { return byte_generator.Next(); } );
+  std::generate_n(std::back_inserter(field.value), len,
+                  [&]() { return byte_generator.Next(); });
 }
 
 uint64_t CoreWorkload::NextTransactionKeyNum() {
@@ -253,7 +380,8 @@ uint64_t CoreWorkload::NextTransactionKeyNum() {
 }
 
 std::string CoreWorkload::NextFieldName() {
-  return std::string(field_prefix_).append(std::to_string(field_chooser_->Next()));
+  return std::string(field_prefix_)
+      .append(std::to_string(field_chooser_->Next()));
 }
 
 void CoreWorkload::PrepareRandomInsert(int numops) {
@@ -270,10 +398,18 @@ bool CoreWorkload::DoRandomInsert(DB &db) {
 }
 
 bool CoreWorkload::DoInsert(DB &db) {
-  const std::string key = BuildKeyName(insert_key_sequence_->Next());
-  std::vector<DB::Field> fields;
-  BuildValues(fields);
-  return db.Insert(table_name_, key, fields) == DB::kOK;
+  if (file_type_ == "cluster") {
+    size_t i = atomic_fetch_add(&input_entry_index, 1L);
+    const std::string key = init_keys[i];
+    std::vector<DB::Field> fields;
+    BuildValues(fields, 512);
+    return db.Insert(table_name_, key, fields) == DB::kOK;
+  } else {
+    const std::string key = BuildKeyName(insert_key_sequence_->Next());
+    std::vector<DB::Field> fields;
+    BuildValues(fields);
+    return db.Insert(table_name_, key, fields) == DB::kOK;
+  }
 }
 
 bool CoreWorkload::DoTransaction(DB &db) {
@@ -284,6 +420,9 @@ bool CoreWorkload::DoTransaction(DB &db) {
       break;
     case UPDATE:
       status = TransactionUpdate(db);
+      break;
+    case FROM_FILE:
+      status = TransactionFromFile(db);
       break;
     case INSERT:
       status = TransactionInsert(db);
@@ -371,4 +510,35 @@ DB::Status CoreWorkload::TransactionInsert(DB &db) {
   return s;
 }
 
-} // ycsbc
+DB::Status CoreWorkload::TransactionFromFile(DB &db) {
+  size_t i = atomic_fetch_add(&file_entry_index, 1L);
+  std::string key;
+  if (file_type_ == "cluster") {
+    key = file_keys[i];
+  } else if (file_type_ == "meta") {
+    key = BuildKeyName(trans_key_hash[i]);
+  } else {
+    throw utils::Exception("file type not set");
+  }
+  int ops = file_operation_types[i];
+  DB::Status s;
+  if (ops == READ) {
+    std::vector<DB::Field> result;
+    s = db.Read(table_name_, key, NULL, result);
+  } else if (ops == INSERT) {
+    int value_size = file_value_sizes[i];
+    std::vector<DB::Field> values;
+    BuildValues(values, value_size);
+    s = db.Insert(table_name_, key, values);
+  } else if (ops == SCAN) {
+    std::vector<std::vector<DB::Field>> result;
+    s = db.Scan(table_name_, key, 10, NULL, result);
+  }
+  //  else {
+  //    throw utils::Exception("Operation request is not recognized!");
+  //  }
+
+  return s;
+}
+
+}  // namespace ycsbc

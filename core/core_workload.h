@@ -10,14 +10,15 @@
 #ifndef YCSB_C_CORE_WORKLOAD_H_
 #define YCSB_C_CORE_WORKLOAD_H_
 
-#include <vector>
 #include <string>
-#include "db.h"
-#include "properties.h"
-#include "generator.h"
-#include "discrete_generator.h"
-#include "counter_generator.h"
+#include <vector>
+
 #include "acknowledged_counter_generator.h"
+#include "counter_generator.h"
+#include "db.h"
+#include "discrete_generator.h"
+#include "generator.h"
+#include "properties.h"
 #include "utils.h"
 
 namespace ycsbc {
@@ -35,6 +36,7 @@ enum Operation {
   SCAN_FAILED,
   READMODIFYWRITE_FAILED,
   DELETE_FAILED,
+  FROM_FILE,
   MAXOPTYPE
 };
 
@@ -74,6 +76,9 @@ class CoreWorkload {
   static const std::string READ_ALL_FIELDS_PROPERTY;
   static const std::string READ_ALL_FIELDS_DEFAULT;
 
+  static const std::string FIELD_LENGTH_MIN_PROPERTY;
+  static const std::string FIELD_LENGTH_MIN_DEFAULT;
+
   ///
   /// The name of the property for deciding whether to write one field (false)
   /// or all fields (true) of a record.
@@ -111,6 +116,18 @@ class CoreWorkload {
   ///
   static const std::string READMODIFYWRITE_PROPORTION_PROPERTY;
   static const std::string READMODIFYWRITE_PROPORTION_DEFAULT;
+
+  static const std::string FROM_FILE_PROPORTION_PROPERTY;
+  static const std::string FROM_FILE_PROPORTION_DEFAULT;
+
+  static const std::string INPUT_FILE_PROPERTY;
+  static const std::string INPUT_FILE_DEFAULT;
+
+  static const std::string FILE_TYPE_PROPERTY;
+  static const std::string FILE_TYPE_DEFAULT;
+
+  static const std::string INIT_FILE_PROPERTY;
+  static const std::string INIT_FILE_DEFAULT;
 
   ///
   /// The name of the property for the the distribution of request keys.
@@ -182,12 +199,18 @@ class CoreWorkload {
   bool read_all_fields() const { return read_all_fields_; }
   bool write_all_fields() const { return write_all_fields_; }
 
-  CoreWorkload() :
-      field_count_(0), read_all_fields_(false), write_all_fields_(false),
-      field_len_generator_(nullptr), key_chooser_(nullptr), field_chooser_(nullptr),
-      scan_len_chooser_(nullptr), insert_key_sequence_(nullptr),
-      transaction_insert_key_sequence_(nullptr), ordered_inserts_(true), record_count_(0) {
-  }
+  CoreWorkload()
+      : field_count_(0),
+        read_all_fields_(false),
+        write_all_fields_(false),
+        field_len_generator_(nullptr),
+        key_chooser_(nullptr),
+        field_chooser_(nullptr),
+        scan_len_chooser_(nullptr),
+        insert_key_sequence_(nullptr),
+        transaction_insert_key_sequence_(nullptr),
+        ordered_inserts_(true),
+        record_count_(0) {}
 
   virtual ~CoreWorkload() {
     delete field_len_generator_;
@@ -203,6 +226,7 @@ class CoreWorkload {
   std::string BuildKeyName(uint64_t key_num);
   void BuildValues(std::vector<DB::Field> &values);
   void BuildSingleValue(std::vector<DB::Field> &update);
+  void BuildValues(std::vector<DB::Field> &values, int field_len);
 
   uint64_t NextTransactionKeyNum();
   std::string NextFieldName();
@@ -212,6 +236,7 @@ class CoreWorkload {
   DB::Status TransactionScan(DB &db);
   DB::Status TransactionUpdate(DB &db);
   DB::Status TransactionInsert(DB &db);
+  DB::Status TransactionFromFile(DB &db);
 
   std::string table_name_;
   int field_count_;
@@ -220,16 +245,25 @@ class CoreWorkload {
   bool write_all_fields_;
   Generator<uint64_t> *field_len_generator_;
   DiscreteGenerator<Operation> op_chooser_;
-  Generator<uint64_t> *key_chooser_; // transaction key gen
+  Generator<uint64_t> *key_chooser_;  // transaction key gen
   Generator<uint64_t> *field_chooser_;
   Generator<uint64_t> *scan_len_chooser_;
-  CounterGenerator *insert_key_sequence_; // load insert key gen
-  AcknowledgedCounterGenerator *transaction_insert_key_sequence_; // transaction insert key gen
+  CounterGenerator *insert_key_sequence_;  // load insert key gen
+  AcknowledgedCounterGenerator
+      *transaction_insert_key_sequence_;  // transaction insert key gen
   bool ordered_inserts_;
   size_t record_count_;
   int zero_padding_;
+  std::string file_type_;
+  std::atomic<size_t> input_entry_index{0L};
+  std::atomic<size_t> file_entry_index{0L};
+  std::vector<std::string> init_keys;
+  std::vector<std::string> file_keys;
+  std::vector<int> trans_key_hash;
+  std::vector<int> file_value_sizes;
+  std::vector<int> file_operation_types;
 };
 
-} // ycsbc
+}  // namespace ycsbc
 
-#endif // YCSB_C_CORE_WORKLOAD_H_
+#endif  // YCSB_C_CORE_WORKLOAD_H_

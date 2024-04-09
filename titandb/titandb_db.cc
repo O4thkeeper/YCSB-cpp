@@ -44,6 +44,9 @@ const std::string PROP_MAX_BG_FLUSHES_DEFAULT = "0";
 const std::string PROP_DISABLE_WAL = "titandb.disable_wal";
 const std::string PROP_DISABLE_WAL_DEFAULT = "false";
 
+const std::string DISABLE_GC = "titandb.disable_background_gc";
+const std::string DISABLE_GC_DEFAULT = "false";
+
 const std::string PROP_TARGET_FILE_SIZE_BASE = "titandb.target_file_size_base";
 const std::string PROP_TARGET_FILE_SIZE_BASE_DEFAULT = "0";
 
@@ -161,6 +164,17 @@ const std::string PROP_GC_OFFLOAD_DEFAULT = "false";
 
 const std::string PROP_BINARY_FILE_PATH = "titandb.binary_file_path";
 const std::string PROP_BINARY_FILE_PATH_DEFAULT = "";
+
+const std::string PROP_ENABLE_PIPELINED_WRITE =
+    "titandb.enable_pipelined_write";
+const std::string PROP_ENABLE_PIPELINED_WRITE_DEFAULT = "false";
+
+const std::string PROP_UNORDERED_WRITE = "titandb.unordered_write";
+const std::string PROP_UNORDERED_WRITE_DEFAULT = "false";
+
+const std::string PROP_ENABLE_MULTI_BATCH_WRITE =
+    "titandb.enable_multi_batch_write";
+const std::string PROP_ENABLE_MULTI_BATCH_WRITE_DEFAULT = "false";
 
 static class std::shared_ptr<rocksdb::Statistics> dbstats;
 
@@ -435,8 +449,9 @@ void TitandbDB::GetOptions(const utils::Properties &props,
     if (val != 0) {
       opt->max_bytes_for_level_base = val;
     }
-    val = std::stoi(props.GetProperty(PROP_MAX_BYTES_FOR_LEVEL_MULTIPLIER,
-                                      PROP_MAX_BYTES_FOR_LEVEL_MULTIPLIER_DEFAULT));
+    val = std::stoi(
+        props.GetProperty(PROP_MAX_BYTES_FOR_LEVEL_MULTIPLIER,
+                          PROP_MAX_BYTES_FOR_LEVEL_MULTIPLIER_DEFAULT));
     if (val != 0) {
       opt->max_bytes_for_level_multiplier = val;
     }
@@ -505,6 +520,11 @@ void TitandbDB::GetOptions(const utils::Properties &props,
       write_options_.disableWAL = true;
     }
 
+    if (props.GetProperty(DISABLE_GC, DISABLE_GC_DEFAULT) ==
+        "true") {
+      opt->disable_background_gc = true;
+    }
+
     val = std::stoi(props.GetProperty(PROP_TITAN_MAX_BACKGROUND_GC,
                                       PROP_TITAN_MAX_BACKGROUND_GC_DEFAULT));
     opt->max_background_gc = val;
@@ -530,7 +550,7 @@ void TitandbDB::GetOptions(const utils::Properties &props,
                                       PROP_MIN_GC_BATCH_SIZE_DEFAULT));
     opt->min_gc_batch_size = val;
 
-//    opt->level_compaction_dynamic_level_bytes = true;
+    //    opt->level_compaction_dynamic_level_bytes = true;
 
     if (props.GetProperty(PROP_LEVEL_MERGE, PROP_LEVEL_MERGE_DEFAULT) ==
         "true") {
@@ -557,6 +577,21 @@ void TitandbDB::GetOptions(const utils::Properties &props,
 
     opt->binary_file_path =
         props.GetProperty(PROP_BINARY_FILE_PATH, PROP_BINARY_FILE_PATH_DEFAULT);
+
+    if (props.GetProperty(PROP_ENABLE_PIPELINED_WRITE,
+                          PROP_ENABLE_PIPELINED_WRITE_DEFAULT) == "true") {
+      opt->enable_pipelined_write = true;
+    }
+
+    if (props.GetProperty(PROP_UNORDERED_WRITE, PROP_UNORDERED_WRITE_DEFAULT) ==
+        "true") {
+      opt->unordered_write = true;
+    }
+
+    if (props.GetProperty(PROP_ENABLE_MULTI_BATCH_WRITE,
+                          PROP_ENABLE_MULTI_BATCH_WRITE_DEFAULT) == "true") {
+      opt->enable_multi_batch_write = true;
+    }
 
     rocksdb::BlockBasedTableOptions table_options;
     size_t cache_size =
@@ -672,7 +707,7 @@ DB::Status TitandbDB::ReadSingle(const std::string &table,
     DeserializeRowFilter(result, data, *fields);
   } else {
     DeserializeRow(result, data);
-    assert(result.size() == static_cast<size_t>(fieldcount_));
+//    assert(result.size() == static_cast<size_t>(fieldcount_));
   }
   return kOK;
 }
@@ -691,7 +726,7 @@ DB::Status TitandbDB::ScanSingle(const std::string &table,
       DeserializeRowFilter(values, data, *fields);
     } else {
       DeserializeRow(values, data);
-      assert(values.size() == static_cast<size_t>(fieldcount_));
+//      assert(values.size() == static_cast<size_t>(fieldcount_));
     }
     db_iter->Next();
   }
