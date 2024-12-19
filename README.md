@@ -1,81 +1,66 @@
-# YCSB-cpp
+# AegonKV Evaluation
 
-Yahoo! Cloud Serving Benchmark([YCSB](https://github.com/brianfrankcooper/YCSB/wiki)) written in C++.
-This is a fork of [YCSB-C](https://github.com/basicthinker/YCSB-C) with some additions
+This repository is used to reproduce all the evaluation results in the AegonKV paper.
+This repository is forked from [YCSB-cpp](https://github.com/ls4154/YCSB-cpp.git).
 
- * Tail latency report using [HdrHistogram_c](https://github.com/HdrHistogram/HdrHistogram_c)
- * Small changes to make it behave more like the original YCSB
- * Supported Databases: LevelDB, RocksDB, LMDB, WiredTiger
-
-# Build YCSB-cpp
-
-## Build with Makefile on POSIX
-
-Simply use `make` to build.
-
-```
-git clone https://github.com/ls4154/YCSB-cpp.git
-cd YCSB-cpp
-git submodule update --init
-make
-```
-
-Databases to bind must be specified as build options. You may also need to add additional link flags (e.g., `-lsnappy`).
-
-To bind LevelDB:
-```
-make BIND_LEVELDB=1
-```
-
-To build with additional libraries and include directories:
-```
-make BIND_LEVELDB=1 EXTRA_CXXFLAGS=-I/example/leveldb/include \
-                    EXTRA_LDFLAGS="-L/example/leveldb/build -lsnappy"
-```
-
-Or modify config section in `Makefile`.
-
-RocksDB build example:
-```
-EXTRA_CXXFLAGS ?= -I/example/rocksdb/include
-EXTRA_LDFLAGS ?= -L/example/rocksdb -ldl -lz -lsnappy -lzstd -lbz2 -llz4
-
-BIND_ROCKSDB ?= 1
-```
-
-## Build with CMake on POSIX
-
+# Build
 ```shell
-git submodule update --init
 mkdir build
 cd build
-cmake -DBIND_ROCKSDB=1 -DBIND_WIREDTIGER=1 -DBIND_LMDB=1 -DBIND_LEVELDB=1 -DWITH_SNAPPY=1 -DWITH_LZ4=1 -DWITH_ZSTD=1 ..
+# build for tian and AegonKV
+cmake -DBIND_ROCKSDB=0 -DBIND_TITANDB=1 -DBIND_DIFFKV=0 ..
 make
 ```
 
-## Build with CMake+vcpkg on Windows
-
-see [BUILD_ON_WINDOWS](BUILD_ON_WINDOWS.md)
-
 ## Running
+The evaluation in the paper use three kinds of workload: YCSB, Social Graph, and Twitter Cluster.
 
-Load data with leveldb:
-```
-./ycsb -load -db leveldb -P workloads/workloada -P leveldb/leveldb.properties -s
-```
-
-Run workload A with leveldb:
-```
-./ycsb -run -db leveldb -P workloads/workloada -P leveldb/leveldb.properties -s
-```
-
-Load and run workload B with rocksdb:
-```
-./ycsb -load -run -db rocksdb -P workloads/workloadb -P rocksdb/rocksdb.properties -s
+### YCSB 
+Load data and execute YCSB-A workload against AegonKV.
+```shell
+./ycsb \
+  -load -run -db titandb -P ../workloads/workloada \
+  -P ../titandb/aegonkv.properties -s -statistics \
+  -p threadcount=16
 ```
 
-Pass additional properties:
+### Social Graph
+Generate workload based on the example in Cao's [paper](https://www.usenix.org/conference/fast20/presentation/cao-zhichao).
+```shell
+$(path to AegonKV)/build/titandb_bench \
+  -benchmarks="fillrandom,mixgraph" \
+  -use_direct_io_for_flush_and_compaction=true -use_direct_reads=true -cache_size=268435456 \
+  -keyrange_dist_a=14.18 -keyrange_dist_b=-2.917 -keyrange_dist_c=0.0164 -keyrange_dist_d=-0.08082 -keyrange_num=30 \
+  -value_k=0.923 -value_sigma=226.409 -iter_k=2.517 -iter_sigma=14.236 \
+  -mix_get_ratio=0.55 -mix_put_ratio=0.44 -mix_seek_ratio=0.01 \
+  -sine_mix_rate_interval_milliseconds=5000 -sine_a=1000 -sine_b=0.000073 -sine_d=80000 \
+  -perf_level=2 -reads=420000000 -num=50000000 -key_size=48 -value_size=256 -threads=16 \
+  -write_buffer_size=67108864 -max_write_buffer_number=2 -target_file_size_base=8388608 \
+  -max_bytes_for_level_base=16777216 -max_bytes_for_level_multiplier=3 \
+  -db=./db \
+  -save_keys=true \
+  -path_save_keys=$(path to save workload trace)
 ```
-./ycsb -load -db leveldb -P workloads/workloadb -P rocksdb/rocksdb.properties \
-    -p threadcount=4 -p recordcount=10000000 -p leveldb.cache_size=134217728 -s
+Execute Social Graph workload against AegonKV.
+```shell
+./ycsb \
+-load -run -db titandb -P ../workloads/workload_meta \
+-P ../titandb/aegonkv.properties -s -statistics \
+-p threadcount=16
 ```
+
+### Twitter Cluster
+Download the trace in Yang's [paper](https://www.usenix.org/conference/osdi20/presentation/yang) from the [repository](https://github.com/twitter/cache-trace).
+
+Prepare and execute Cluster-39 workload against AegonKV.
+
+```shell
+python ../titandb/workload_prepare.py
+
+./ycsb \
+  -load -run -db titandb -P ../workloads/workload_cluster \
+  -P ../titandb/aegonkv.properties -s -statistics \
+  -p threadcount=16
+```
+
+**More specific command scripts can be found in `titandb/script.sh` and `titandb/real-workload.sh`, and configurations can be found under `workloads` folder.**
