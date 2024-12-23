@@ -3,7 +3,7 @@
 This repository is used to reproduce all the evaluation results in the AegonKV paper.
 This repository is forked from [YCSB-cpp](https://github.com/ls4154/YCSB-cpp.git).
 
-# Build
+# Compilation
 ```shell
 mkdir build
 cd build
@@ -64,3 +64,27 @@ python ../titandb/workload_prepare.py
 ```
 
 **More specific command scripts can be found in `titandb/script.sh` and `titandb/real-workload.sh`, and configurations can be found under `workloads` folder.**
+
+## Result
+Five metrics throughput, tail latency, space usage, compaction I/O, and write stall are used in the paper.
+
+At the end of one run (mey take several hours), you will see the results in the following format (only the last few lines of the output to be used are captured here):
+```shell
+2024-02-29 09:57:35 3438 sec: 200000000 operations; [READ: Count=99995365 Max=328990.72 Min=9.58 Avg=200.94 90=373.25 99=488.45 99.9=1320.96 99.99=44662.78] [UPDATE: Count=100004635 Max=246022.14 Min=40.35 Avg=330.39 90=508.67 99=641.53 99.9=1645.57 99.99=50692.10]
+Run runtime(sec): 3438.48
+Run operations success(ops): 200000000
+Run operations fail(ops): 0
+Run throughput(ops/sec): 58165.3
+```
+You can get **throughput**, **tail latency** from the results above.
+
+If you turn the option `-statistics` on, then there will also be statistics output. For example, you can find the following entry to get the **compaction I/O** and **write stall** result.
+```shell
+rocksdb.compact.read.bytes COUNT : 40784350333
+rocksdb.compact.write.bytes COUNT : 38094450456
+rocksdb.stall.micros COUNT : 0
+```
+You can get **space usage** with the following command, or use the real-time monitoring script we provide here (`titandb/size_util.py`).
+```shell
+du -sh ./
+```
